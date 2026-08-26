@@ -12,12 +12,13 @@ from dataclasses import replace
 
 # Preference order, best first. We prefer models with a generous free tier and
 # stable tool-calling for the chat model.
+# Prefer the self-updating alias and the current flash model first; older ids
+# (2.0/2.5) are being retired and may 404 even when the API still lists them.
 PREFERRED_CHAT = [
-    "gemini-2.0-flash",
     "gemini-flash-latest",
-    "gemini-2.5-flash",
     "gemini-3.6-flash",
-    "gemini-2.0-flash-001",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
     "gemini-1.5-flash",
 ]
 PREFERRED_EMBED = [
