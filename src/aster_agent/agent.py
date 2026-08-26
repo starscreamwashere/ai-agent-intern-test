@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .llm import LLMClient, ToolCall, ToolSpec, Turn
+from .observability import NullTracer, Tracer, new_session_id
 from .order_lookup import OrderStore
 from .prompts import SYSTEM_PROMPT, format_context_block
 from .retrieval import KnowledgeBase, RetrievedChunk
@@ -95,11 +96,23 @@ def _parse_markers(text: str) -> tuple[str, list[str], bool | None]:
 
 
 class SupportAgent:
-    def __init__(self, kb: KnowledgeBase, llm: LLMClient, order_store: OrderStore, *, top_k: int = 5) -> None:
+    def __init__(
+        self,
+        kb: KnowledgeBase,
+        llm: LLMClient,
+        order_store: OrderStore,
+        *,
+        top_k: int = 5,
+        tracer: "Tracer | None" = None,
+        session_id: str | None = None,
+    ) -> None:
         self.kb = kb
         self.llm = llm
         self.order_store = order_store
         self.top_k = top_k
+        self.tracer = tracer or NullTracer()
+        self.session_id = session_id or new_session_id()
+        self._turn_index = 0
         self._history: list[Turn] = []          # persisted user/model turns
         self._user_messages: list[str] = []      # for building retrieval queries
 
@@ -125,13 +138,26 @@ class SupportAgent:
 
         tool_invocations: list[ToolInvocation] = []
         forced_handoff = False
+        fallback = False
         answer_text = ""
 
         # 3. Tool loop.
         for _ in range(MAX_TOOL_ITERATIONS):
-            result = self.llm.respond(
-                system_instruction=SYSTEM_PROMPT, turns=turns, tools=[ORDER_LOOKUP_TOOL]
-            )
+            try:
+                result = self.llm.respond(
+                    system_instruction=SYSTEM_PROMPT, turns=turns, tools=[ORDER_LOOKUP_TOOL]
+                )
+            except Exception as exc:
+                self.tracer.log(
+                    {
+                        "event": "error",
+                        "session_id": self.session_id,
+                        "turn": self._turn_index,
+                        "user_message": message,
+                        "error": repr(exc),
+                    }
+                )
+                raise
             if result.tool_call is not None:
                 tool_result = self._execute_tool(result.tool_call)
                 tool_invocations.append(
@@ -157,10 +183,16 @@ class SupportAgent:
                 "Let me hand you to a human specialist."
             )
             forced_handoff = True
+            fallback = True
 
         # 4. Parse markers and finalize.
         clean_answer, sources, handoff_marker = _parse_markers(answer_text)
         handoff = bool(forced_handoff or handoff_marker)
+
+        # Relevant conversation history (prior turns) before we append this one.
+        history_snapshot = [
+            {"role": t.role, "text": t.text} for t in self._history if t.role in ("user", "model")
+        ]
 
         # Persist memory: the user message (with context stripped for compactness)
         # and the model's final answer.
@@ -169,16 +201,24 @@ class SupportAgent:
         self._history.append(Turn(role="model", text=clean_answer))
 
         trace = {
+            "event": "turn",
+            "session_id": self.session_id,
+            "turn": self._turn_index,
             "user_message": message,
+            "history": history_snapshot,
             "retrieval_query": query,
             "retrieved": [r.to_debug() for r in retrieved],
             "tool_calls": [
                 {"name": t.name, "args": t.args, "result": t.result} for t in tool_invocations
             ],
             "raw_answer": answer_text,
+            "final_answer": clean_answer,
             "sources": sources,
             "handoff": handoff,
+            "fallback": fallback,
         }
+        self.tracer.log(trace)
+        self._turn_index += 1
 
         return AgentResponse(
             answer=clean_answer,
@@ -192,3 +232,5 @@ class SupportAgent:
     def reset(self) -> None:
         self._history.clear()
         self._user_messages.clear()
+        self._turn_index = 0
+        self.session_id = new_session_id()

@@ -13,29 +13,29 @@ the observability stage.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 
 from .build import build_agent
 from .config import load_config
+from .observability import JsonTracer
 
 
-def _print_response(resp, debug: bool) -> None:
+def _print_response(resp) -> None:
     print("\nAgent:")
     print(resp.answer)
     if resp.sources:
         print("\nSources: " + ", ".join(resp.sources))
     if resp.handoff:
         print("\n[Recommending human handoff]")
-    if debug:
-        print("\n--- trace ---")
-        print(json.dumps(resp.trace, indent=2, default=str))
-        print("--- end trace ---")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Aster & Row support agent (CLI)")
-    parser.add_argument("--debug", action="store_true", help="print the structured trace")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="stream a structured JSON trace per turn to stderr",
+    )
     args = parser.parse_args(argv)
 
     config = load_config()
@@ -47,7 +47,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print("Building knowledge base and agent...", file=sys.stderr)
-    agent = build_agent(config)
+    tracer = JsonTracer(sys.stderr, enabled=args.debug)
+    agent = build_agent(config, tracer=tracer)
     print(
         "Aster & Row support agent. Type your message, 'reset' to clear the "
         "session, or 'exit' to quit.\n"
@@ -72,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # keep the REPL alive on transient API errors
             print(f"\n[error] {exc}\n", file=sys.stderr)
             continue
-        _print_response(resp, debug=args.debug)
+        _print_response(resp)
         print()
 
     return 0

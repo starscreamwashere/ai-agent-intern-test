@@ -10,6 +10,7 @@ from .agent import SupportAgent
 from .config import Config, load_config
 from .embeddings import build_embedder
 from .llm import GeminiClient, LLMClient
+from .observability import Tracer
 from .order_lookup import OrderStore
 from .retrieval import KnowledgeBase
 
@@ -29,6 +30,7 @@ def build_agent(
     *,
     llm: LLMClient | None = None,
     kb: KnowledgeBase | None = None,
+    tracer: Tracer | None = None,
 ) -> SupportAgent:
     """Build a fresh single-session agent.
 
@@ -46,4 +48,4 @@ def build_agent(
             )
         llm = GeminiClient(api_key=config.gemini_api_key, model=config.gemini_model)
 
-    return SupportAgent(kb, llm, OrderStore(), top_k=config.kb_top_k)
+    return SupportAgent(kb, llm, OrderStore(), top_k=config.kb_top_k, tracer=tracer)
