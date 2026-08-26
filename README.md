@@ -56,7 +56,7 @@ Copy `.env.example` to `.env` and fill in your key. **Never commit `.env`.**
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | — | Google Gemini API key (free tier works). Get one at https://aistudio.google.com/apikey |
-| `GEMINI_MODEL` | `gemini-3.6-flash` | Chat / tool-calling model |
+| `GEMINI_MODEL` | `gemini-2.0-flash` | Chat / tool-calling model (generous free tier; `gemini-3.6-flash` also works) |
 | `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
 | `KB_TOP_K` | `5` | Passages retrieved per turn |
 | `EMBED_BACKEND` | `gemini` | `gemini` (semantic) or `tfidf` (offline, deterministic, no key) |

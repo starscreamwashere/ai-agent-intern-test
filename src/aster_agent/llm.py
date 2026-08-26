@@ -67,7 +67,7 @@ class GeminiClient:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-3.6-flash",
+        model: str = "gemini-2.0-flash",
         temperature: float = 0.0,
         *,
         min_interval: float = 0.0,
