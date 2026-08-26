@@ -24,6 +24,11 @@ from typing import Any, Callable, Protocol
 class ToolCall:
     name: str
     args: dict[str, Any]
+    # Provider-specific raw model content for this call. Gemini 3.x thinking
+    # models return a `thought_signature` on the function-call part that MUST be
+    # echoed back verbatim on the next turn, so we stash the original content and
+    # replay it instead of reconstructing the call.
+    raw: Any = None
 
 
 @dataclass
@@ -86,18 +91,23 @@ class GeminiClient:
                 contents.append(types.Content(role="user", parts=[types.Part(text=t.text)]))
             elif t.role == "model":
                 if t.tool_call is not None:
-                    contents.append(
-                        types.Content(
-                            role="model",
-                            parts=[
-                                types.Part(
-                                    function_call=types.FunctionCall(
-                                        name=t.tool_call.name, args=t.tool_call.args
+                    if t.tool_call.raw is not None:
+                        # Replay the original model content verbatim (preserves
+                        # the thought_signature Gemini requires on the next turn).
+                        contents.append(t.tool_call.raw)
+                    else:
+                        contents.append(
+                            types.Content(
+                                role="model",
+                                parts=[
+                                    types.Part(
+                                        function_call=types.FunctionCall(
+                                            name=t.tool_call.name, args=t.tool_call.args
+                                        )
                                     )
-                                )
-                            ],
+                                ],
+                            )
                         )
-                    )
                 else:
                     contents.append(types.Content(role="model", parts=[types.Part(text=t.text)]))
             elif t.role == "tool":
@@ -156,7 +166,11 @@ class GeminiClient:
                 fc = getattr(part, "function_call", None)
                 if fc:
                     args = dict(fc.args) if fc.args else {}
-                    return LLMResult(tool_call=ToolCall(name=fc.name, args=args))
+                    # Stash the full model content so it can be replayed with its
+                    # thought_signature intact on the follow-up turn.
+                    return LLMResult(
+                        tool_call=ToolCall(name=fc.name, args=args, raw=candidate.content)
+                    )
 
         return LLMResult(text=(resp.text or "").strip())
 

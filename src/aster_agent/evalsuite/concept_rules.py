@@ -93,7 +93,12 @@ CONCEPT_RULES: dict[str, list[list[str]]] = {
     ],
     # insufficient-information
     "the supplied information is insufficient": [
-        ["insufficient", "not enough", "don't have enough", "do not have enough", "not have information", "isn't enough", "can't confirm", "cannot confirm", "no information", "don't have information", "not able to confirm"],
+        ["insufficient", "not enough", "don't have enough", "do not have enough",
+         "not have information", "isn't enough", "can't confirm", "cannot confirm",
+         "no information", "don't have information", "not able to confirm",
+         "does not contain", "do not contain", "doesn't contain", "does not include",
+         "does not specify", "not specified", "not available in", "no details",
+         "not contain details", "does not have details", "provided information does not"],
     ],
     "human confirmation": [
         ["human", "specialist", "support", "team"],
