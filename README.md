@@ -285,14 +285,7 @@ harness also treats any API error as a failed case, never a crashed run.
   `gemini-embedding-001` and `gemini-3.6-flash`). This was only caught by running against
   the real API — a good reminder that model identifiers must be verified live, not assumed.
 
-## 10. Demo video
 
-▶
-
-A screen recording demonstrating: a knowledge-base question with citations, an order
-lookup, a multi-turn conversation (ship internationally → "what about Canada?"), a case
-where the agent refuses to guess and recommends human help, and the evaluation suite
-running.
 
 <!-- Tip: to get an inline player instead of a download link, open this README in
 GitHub's web editor and drag the .mp4 into it; GitHub rehosts it and embeds a player. -->
