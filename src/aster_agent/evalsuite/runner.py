@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
@@ -55,12 +56,23 @@ def run_case(agent: SupportAgent, case: dict[str, Any]) -> tuple[CaseResult, Age
 def run_suite(
     cases: list[dict[str, Any]],
     agent_factory: Callable[[], SupportAgent],
+    *,
+    progress: bool = False,
 ) -> list[tuple[CaseResult, AgentResponse]]:
     results: list[tuple[CaseResult, AgentResponse]] = []
-    for case in cases:
+    total = len(cases)
+    start = time.monotonic()
+    for i, case in enumerate(cases, start=1):
         agent = agent_factory()  # fresh, isolated session per case
+        if progress:
+            print(f"[{i}/{total}] {case['id']} ...", end="", flush=True, file=sys.stderr)
         try:
-            results.append(run_case(agent, case))
+            cr, resp = run_case(agent, case)
+            results.append((cr, resp))
+            if progress:
+                mark = "PASS" if cr.passed else "FAIL"
+                elapsed = time.monotonic() - start
+                print(f" {mark} ({elapsed:.0f}s elapsed)", file=sys.stderr)
         except Exception as exc:  # a crash is a failed case, not a crashed run
             cr = CaseResult(
                 case_id=case["id"],
@@ -69,6 +81,8 @@ def run_suite(
                 error=repr(exc),
             )
             results.append((cr, AgentResponse(answer="")))
+            if progress:
+                print(" ERROR", file=sys.stderr)
     return results
 
 
@@ -152,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     def factory() -> SupportAgent:
         return build_agent(config, kb=kb)  # fresh session, shared KB
 
-    results = run_suite(cases, factory)
+    results = run_suite(cases, factory, progress=True)
     summary = summarize(results)
     summary["label"] = args.label
     summary["model"] = config.gemini_model
