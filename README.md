@@ -152,32 +152,35 @@ paraphrase. It reports **per-case and per-category** results.
 
 ## 6. Evaluation results
 
-<!-- FINAL: paste the complete fresh-key run here. Command: python -m aster_agent.evalsuite.runner -->
+Model: `gemini-3.6-flash`. Grading is fully deterministic (see §5). Command:
+`python -m aster_agent.evalsuite.runner --only visible`.
 
-**Baseline (first live run).** Rate limiting cut the first run short after 5 cases; of
-those, **2/5 passed** and **3 substantive failures** were identified (see the bug diary):
-`trailplus-return-window` (paraphrased "45 days" instead of "45 calendar days"),
-`final-sale-damaged-exception` ("report within 7 days" not stated), and
-`canada-multiturn` ("duties/taxes not prepaid" not stated).
+**Baseline** — first complete live run (commit before the tool-call fix): **8/15**.
+Four of the seven failures were a single infrastructure bug (Gemini's
+`thought_signature` requirement crashed every tool-calling case with a 400 — see Bug 1);
+the other three were the grading/behavior misses in Bugs 2–4.
 
-**Final (complete run):** _to be filled from `evaluation/results.json` after the fixed
-full run._
+**Final** — after the fixes: _re-run `--only visible` and `--only extra` and paste the
+totals here._
 
-| Category | Baseline | Final |
+| Category | Baseline (15 visible) | Final |
 |---|---|---|
-| retrieval | 1/2 run | _tbd_ |
-| groundedness | 1/1 run | _tbd_ |
-| conversation | 0/1 run | _tbd_ |
-| multi-source-grounding | 0/1 run | _tbd_ |
-| tool-use / tool-reliability | — (not reached) | _tbd_ |
-| privacy | — | _tbd_ |
-| prompt-security | — | _tbd_ |
-| abstention | — | _tbd_ |
-| source-conflict | — | _tbd_ |
+| retrieval | 2/2 | _tbd_ |
+| groundedness | 2/2 | _tbd_ |
+| conversation | 1/1 | _tbd_ |
+| privacy | 1/1 | _tbd_ |
+| source-conflict | 1/1 | _tbd_ |
+| tool-use | 1/2 | _tbd_ |
+| tool-reliability | 0/3 (thought_signature 400) | _tbd_ |
+| multi-source-grounding | 0/1 (omitted 7-day window) | _tbd_ |
+| prompt-security | 0/1 (missing migration-note rebuttal; over-eager handoff) | _tbd_ |
+| abstention | 0/1 (correct abstention; grader phrasing gap) | _tbd_ |
+| **Overall** | **8/15 (53%)** | _tbd_ |
 
-The 60 offline unit tests (`python -m pytest`) pass deterministically and cover the
-order tool's safety properties, retrieval precedence, the agent control flow, the
-grader itself, observability secret-safety, and rate-limit/retry logic.
+The offline unit tests (`python -m pytest` — 62 passing) run deterministically with no
+key and cover the order tool's safety properties, retrieval precedence, the agent
+control flow, the grader, observability secret-safety, rate-limit/retry, and the Gemini
+tool-call replay.
 
 ## 7. Bug diary
 
