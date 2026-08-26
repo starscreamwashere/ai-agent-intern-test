@@ -2,7 +2,7 @@
 
 Two implementations behind one small interface:
 
-* GeminiEmbedder    - real semantic embeddings via the free `text-embedding-004`
+* GeminiEmbedder    - real semantic embeddings via the free `gemini-embedding-001`
                       model. Used when a GEMINI_API_KEY is available.
 * TfidfEmbedder     - a dependency-light, fully deterministic lexical embedder
                       (hashed TF-IDF vectors). It needs no API key and no
@@ -86,11 +86,11 @@ class TfidfEmbedder:
 
 
 class GeminiEmbedder:
-    """Semantic embeddings via google-genai `text-embedding-004`."""
+    """Semantic embeddings via google-genai (`gemini-embedding-001`)."""
 
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str = "text-embedding-004") -> None:
+    def __init__(self, api_key: str, model: str = "gemini-embedding-001") -> None:
         from google import genai
 
         self._genai = genai
@@ -100,16 +100,25 @@ class GeminiEmbedder:
     def _embed(self, texts: list[str], task_type: str) -> np.ndarray:
         from google.genai import types
 
-        vectors: list[list[float]] = []
-        # The API accepts batches; keep them modest for the free tier.
-        for start in range(0, len(texts), 100):
-            batch = texts[start:start + 100]
-            resp = self._client.models.embed_content(
-                model=self.model,
-                contents=batch,
-                config=types.EmbedContentConfig(task_type=task_type),
+        cfg = types.EmbedContentConfig(task_type=task_type)
+
+        def call(contents):
+            return self._client.models.embed_content(
+                model=self.model, contents=contents, config=cfg
             )
-            vectors.extend(e.values for e in resp.embeddings)
+
+        vectors: list[list[float]] = []
+        try:
+            # Try a single batched call first (fast path).
+            for start in range(0, len(texts), 100):
+                resp = call(texts[start:start + 100])
+                vectors.extend(e.values for e in resp.embeddings)
+        except Exception:
+            # Some API versions accept only one content per request; fall back.
+            vectors = []
+            for text in texts:
+                resp = call(text)
+                vectors.extend(e.values for e in resp.embeddings)
         return _normalize_rows(np.array(vectors, dtype=np.float32))
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
@@ -121,7 +130,7 @@ class GeminiEmbedder:
         return self._embed([text], task_type="RETRIEVAL_QUERY")[0]
 
 
-def build_embedder(backend: str, *, api_key: str | None = None, model: str = "text-embedding-004") -> Embedder:
+def build_embedder(backend: str, *, api_key: str | None = None, model: str = "gemini-embedding-001") -> Embedder:
     if backend == "gemini":
         if not api_key:
             raise ValueError("Gemini embedding backend requires an API key.")

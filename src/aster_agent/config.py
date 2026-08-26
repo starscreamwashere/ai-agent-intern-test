@@ -51,7 +51,7 @@ def load_config() -> Config:
     return Config(
         gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
         gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-        gemini_embed_model=os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004"),
+        gemini_embed_model=os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001"),
         kb_top_k=int(os.getenv("KB_TOP_K", "5")),
         embed_backend=os.getenv("EMBED_BACKEND", "gemini").strip().lower(),
     )
