@@ -59,13 +59,23 @@ class LLMClient(Protocol):
 # --------------------------------------------------------------------------- #
 
 class GeminiClient:
-    def __init__(self, api_key: str, model: str = "gemini-3.6-flash", temperature: float = 0.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gemini-3.6-flash",
+        temperature: float = 0.0,
+        *,
+        min_interval: float = 0.0,
+    ) -> None:
         from google import genai
+
+        from .ratelimit import get_generate_limiter
 
         self._genai = genai
         self._client = genai.Client(api_key=api_key)
         self.model = model
         self.temperature = temperature
+        self._limiter = get_generate_limiter(min_interval) if min_interval > 0 else None
 
     def _to_contents(self, turns: list[Turn]):
         from google.genai import types
@@ -130,8 +140,13 @@ class GeminiClient:
             # Manual function calling: we execute + record tool calls ourselves.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
-        resp = self._client.models.generate_content(
-            model=self.model, contents=self._to_contents(turns), config=config
+        from .ratelimit import call_with_retry
+
+        resp = call_with_retry(
+            lambda: self._client.models.generate_content(
+                model=self.model, contents=self._to_contents(turns), config=config
+            ),
+            limiter=self._limiter,
         )
 
         # Look for a function call in the first candidate's parts.

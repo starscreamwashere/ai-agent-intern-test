@@ -92,6 +92,7 @@ def summarize(results: list[tuple[CaseResult, AgentResponse]]) -> dict[str, Any]
                 "failed_checks": [
                     {"name": c.name, "detail": c.detail} for c in cr.checks if not c.passed
                 ],
+                "answer": resp.answer,
                 "sources": resp.sources,
                 "tool_calls": [{"name": t.name, "args": t.args} for t in resp.tool_calls],
                 "handoff": resp.handoff,

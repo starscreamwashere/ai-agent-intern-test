@@ -46,6 +46,10 @@ def build_agent(
                 "GEMINI_API_KEY is not set. Add it to .env to run the live agent, "
                 "or inject a mock LLM for offline use."
             )
-        llm = GeminiClient(api_key=config.gemini_api_key, model=config.gemini_model)
+        llm = GeminiClient(
+            api_key=config.gemini_api_key,
+            model=config.gemini_model,
+            min_interval=config.gemini_min_interval,
+        )
 
     return SupportAgent(kb, llm, OrderStore(), top_k=config.kb_top_k, tracer=tracer)

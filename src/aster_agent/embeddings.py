@@ -100,11 +100,15 @@ class GeminiEmbedder:
     def _embed(self, texts: list[str], task_type: str) -> np.ndarray:
         from google.genai import types
 
+        from .ratelimit import call_with_retry
+
         cfg = types.EmbedContentConfig(task_type=task_type)
 
         def call(contents):
-            return self._client.models.embed_content(
-                model=self.model, contents=contents, config=cfg
+            return call_with_retry(
+                lambda: self._client.models.embed_content(
+                    model=self.model, contents=contents, config=cfg
+                )
             )
 
         vectors: list[list[float]] = []

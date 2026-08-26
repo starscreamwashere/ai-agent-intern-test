@@ -34,6 +34,7 @@ class Config:
     gemini_embed_model: str
     kb_top_k: int
     embed_backend: str  # "gemini" or "tfidf"
+    gemini_min_interval: float  # seconds between generate calls (free-tier pacing)
 
     @property
     def has_api_key(self) -> bool:
@@ -54,4 +55,5 @@ def load_config() -> Config:
         gemini_embed_model=os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001"),
         kb_top_k=int(os.getenv("KB_TOP_K", "5")),
         embed_backend=os.getenv("EMBED_BACKEND", "gemini").strip().lower(),
+        gemini_min_interval=float(os.getenv("GEMINI_MIN_INTERVAL_S", "13")),
     )
