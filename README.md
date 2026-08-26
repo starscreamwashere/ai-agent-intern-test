@@ -56,8 +56,8 @@ Copy `.env.example` to `.env` and fill in your key. **Never commit `.env`.**
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | — | Google Gemini API key (free tier works). Get one at https://aistudio.google.com/apikey |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Chat / tool-calling model (generous free tier; `gemini-3.6-flash` also works) |
-| `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
+| `GEMINI_MODEL` | `auto` | Chat / tool-calling model. `auto` asks the API which models the key can use and picks the best available (preferring generous-free-tier models like `gemini-2.0-flash`); pin an id to override. |
+| `GEMINI_EMBED_MODEL` | `auto` | Embedding model (`auto` selects e.g. `gemini-embedding-001`) |
 | `KB_TOP_K` | `5` | Passages retrieved per turn |
 | `EMBED_BACKEND` | `gemini` | `gemini` (semantic) or `tfidf` (offline, deterministic, no key) |
 | `GEMINI_MIN_INTERVAL_S` | `13` | Seconds between generate calls, to respect the free-tier rate limit (~5 req/min). Lower it if your key has more quota; `0` disables pacing. |
@@ -68,7 +68,7 @@ suite run offline.
 
 ## 3. Model, embeddings, framework, storage
 
-- **LLM:** Google **Gemini `gemini-3.6-flash`** via the official `google-genai` SDK,
+- **LLM:** Google **Gemini** (auto-selected; defaults toward `gemini-2.0-flash`) via the official `google-genai` SDK,
   with **manual function calling** (we execute and record tool calls ourselves rather
   than using automatic calling, so every tool call is observable and its arguments are
   assertable).

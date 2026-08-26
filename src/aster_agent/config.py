@@ -51,8 +51,8 @@ class Config:
 def load_config() -> Config:
     return Config(
         gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
-        gemini_embed_model=os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001"),
+        gemini_model=os.getenv("GEMINI_MODEL", "auto"),
+        gemini_embed_model=os.getenv("GEMINI_EMBED_MODEL", "auto"),
         kb_top_k=int(os.getenv("KB_TOP_K", "5")),
         embed_backend=os.getenv("EMBED_BACKEND", "gemini").strip().lower(),
         gemini_min_interval=float(os.getenv("GEMINI_MIN_INTERVAL_S", "13")),

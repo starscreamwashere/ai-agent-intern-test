@@ -23,6 +23,7 @@ from typing import Any, Callable
 from ..agent import AgentResponse, SupportAgent
 from ..build import build_agent, build_knowledge_base
 from ..config import EVAL_DIR, load_config
+from ..model_select import resolve_config_models
 from .assertions import CaseResult, evaluate_case
 
 VISIBLE_CASES = EVAL_DIR / "visible-cases.json"
@@ -159,7 +160,13 @@ def main(argv: list[str] | None = None) -> int:
         print("GEMINI_API_KEY is not set. Set it in .env to run the live eval.", file=sys.stderr)
         return 1
 
-    print(f"Building knowledge base ({config.effective_embed_backend} embeddings)...", file=sys.stderr)
+    # Resolve 'auto' model ids once (one API call) so every case reuses them.
+    config = resolve_config_models(config)
+    print(
+        f"Building knowledge base ({config.effective_embed_backend} embeddings, "
+        f"{config.gemini_embed_model})...",
+        file=sys.stderr,
+    )
     kb = build_knowledge_base(config)
     print(f"Running {len(cases)} cases against {config.gemini_model}...", file=sys.stderr)
 

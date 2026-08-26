@@ -10,13 +10,14 @@ from .agent import SupportAgent
 from .config import Config, load_config
 from .embeddings import build_embedder
 from .llm import GeminiClient, LLMClient
+from .model_select import resolve_config_models
 from .observability import Tracer
 from .order_lookup import OrderStore
 from .retrieval import KnowledgeBase
 
 
 def build_knowledge_base(config: Config | None = None) -> KnowledgeBase:
-    config = config or load_config()
+    config = resolve_config_models(config or load_config())
     embedder = build_embedder(
         config.effective_embed_backend,
         api_key=config.gemini_api_key,
@@ -37,7 +38,7 @@ def build_agent(
     `llm` and `kb` can be injected (tests use a mock LLM / offline KB). When no
     llm is given, a GeminiClient is created and requires GEMINI_API_KEY.
     """
-    config = config or load_config()
+    config = resolve_config_models(config or load_config())
     kb = kb or build_knowledge_base(config)
 
     if llm is None:
