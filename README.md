@@ -283,11 +283,13 @@ harness also treats any API error as a failed case, never a crashed run.
 
 ## 10. Demo video
 
-<!-- Embed the GIF or link the recording here, e.g.:
-![demo](docs/demo.gif)
-or: [▶ Watch the 3-minute demo](docs/demo.mp4)
--->
+▶ **[Watch the demo](docs/cometChatAgentAssignment.mp4)** (`docs/cometChatAgentAssignment.mp4`)
 
-_A 2–4 minute screen recording demonstrating: a knowledge-base question with citations,
-an order lookup, a multi-turn conversation, a case where the agent refuses to guess /
-recommends human help, and the evaluation suite running._
+A screen recording demonstrating: a knowledge-base question with citations, an order
+lookup, a multi-turn conversation (ship internationally → "what about Canada?"), a case
+where the agent refuses to guess and recommends human help, and the evaluation suite
+running.
+
+<!-- Tip: to get an inline player instead of a download link, open this README in
+GitHub's web editor and drag the .mp4 into it; GitHub rehosts it and embeds a player. -->
+
