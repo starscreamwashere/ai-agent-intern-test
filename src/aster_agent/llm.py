@@ -59,7 +59,7 @@ class LLMClient(Protocol):
 # --------------------------------------------------------------------------- #
 
 class GeminiClient:
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash", temperature: float = 0.0) -> None:
+    def __init__(self, api_key: str, model: str = "gemini-3.6-flash", temperature: float = 0.0) -> None:
         from google import genai
 
         self._genai = genai
