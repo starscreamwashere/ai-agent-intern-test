@@ -12,12 +12,16 @@ from dataclasses import replace
 
 # Preference order, best first. We prefer models with a generous free tier and
 # stable tool-calling for the chat model.
-# Prefer the self-updating alias and the current flash model first; older ids
-# (2.0/2.5) are being retired and may 404 even when the API still lists them.
+# Prefer "flash-lite" models: they have the most generous free daily quota and
+# support tool calling, then the self-updating aliases, then full flash models.
+# Free tiers cap per-model per-day (e.g. gemini-3.6-flash is 20/day), so picking a
+# lite model keeps the full eval suite runnable on the free tier.
 PREFERRED_CHAT = [
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
     "gemini-flash-latest",
-    "gemini-3.6-flash",
     "gemini-2.5-flash",
+    "gemini-3.6-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
 ]
