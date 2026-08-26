@@ -68,7 +68,9 @@ suite run offline.
 
 ## 3. Model, embeddings, framework, storage
 
-- **LLM:** Google **Gemini** (auto-selected; defaults toward `gemini-2.0-flash`) via the official `google-genai` SDK,
+- **LLM:** Google **Gemini** (auto-selected, preferring high-free-quota `flash-lite`
+  models; final results were produced on `gemini-3.5-flash-lite`) via the official
+  `google-genai` SDK,
   with **manual function calling** (we execute and record tool calls ourselves rather
   than using automatic calling, so every tool call is observable and its arguments are
   assertable).
@@ -146,84 +148,115 @@ paraphrase. It reports **per-case and per-category** results.
 - **7 original cases** in `evaluation/extra-cases.json` — paraphrases, multi-turn
   combinations, and new scenarios (e.g. an injection *inside an order's internal note*).
 
-> **Free-tier note:** Gemini's free tier is ~5 requests/minute with a daily cap. A full
-> 22-case run makes ~35–40 calls (tool cases make extra round-trips), so it is paced and
-> can take several minutes. If you exhaust the daily quota, use a fresh key/project.
+> **Free-tier note:** Gemini's free tier caps `generate_content` **per model, per day**
+> (e.g. `gemini-3.6-flash` is only 20/day). A full 22-case run makes ~30+ calls, so pick a
+> `flash-lite` model (bigger free quota) — `GEMINI_MODEL=auto` does this for you — and, if a
+> model gets rate-limited, switch to another (each id is a separate daily bucket).
 
 ## 6. Evaluation results
 
-Model: `gemini-3.6-flash`. Grading is fully deterministic (see §5). Command:
-`python -m aster_agent.evalsuite.runner --only visible`.
+Grading is fully deterministic (see §5). Both runs below are real live runs.
 
-**Baseline** — first complete live run (commit before the tool-call fix): **8/15**.
-Four of the seven failures were a single infrastructure bug (Gemini's
-`thought_signature` requirement crashed every tool-calling case with a 400 — see Bug 1);
-the other three were the grading/behavior misses in Bugs 2–4.
+**Baseline** — before the tool-call fix, on `gemini-3.6-flash`: **8/15 visible (53%)**.
+Four of the seven failures were a single bug — Gemini's `thought_signature` requirement
+crashed *every* tool-calling case with a 400 (see Bug 1); the rest were the grading /
+behavior misses in Bugs 2–5.
 
-**Final** — after the fixes: _re-run `--only visible` and `--only extra` and paste the
-totals here._
+**Final** — after the fixes, on `gemini-3.5-flash-lite`: **11/15 visible (73%)** and
+**5/7 original (71%)** → **16/22 overall (73%)**. The tool-calling category recovered
+fully (**0/3 → 3/3**).
 
-| Category | Baseline (15 visible) | Final |
+| Category | Baseline (visible) | Final (visible) |
 |---|---|---|
-| retrieval | 2/2 | _tbd_ |
-| groundedness | 2/2 | _tbd_ |
-| conversation | 1/1 | _tbd_ |
-| privacy | 1/1 | _tbd_ |
-| source-conflict | 1/1 | _tbd_ |
-| tool-use | 1/2 | _tbd_ |
-| tool-reliability | 0/3 (thought_signature 400) | _tbd_ |
-| multi-source-grounding | 0/1 (omitted 7-day window) | _tbd_ |
-| prompt-security | 0/1 (missing migration-note rebuttal; over-eager handoff) | _tbd_ |
-| abstention | 0/1 (correct abstention; grader phrasing gap) | _tbd_ |
-| **Overall** | **8/15 (53%)** | _tbd_ |
+| retrieval | 2/2 | 1/2 |
+| groundedness | 2/2 | 2/2 |
+| conversation | 1/1 | 0/1 |
+| multi-source-grounding | 0/1 | 1/1 |
+| privacy | 1/1 | 1/1 |
+| source-conflict | 1/1 | 1/1 |
+| tool-use | 1/2 | 1/2 |
+| tool-reliability | 0/3 (thought_signature 400) | **3/3** |
+| prompt-security | 0/1 | 0/1 |
+| abstention | 0/1 | 1/1 |
+| **Overall** | **8/15 (53%)** | **11/15 (73%)** |
 
-The offline unit tests (`python -m pytest` — 62 passing) run deterministically with no
+Original cases (`--only extra`), final: **5/7** — tool-reliability 2/2, retrieval 1/1,
+multi-source-grounding 1/1, prompt-security 1/2, conversation 0/1.
+
+**Remaining failures** are model-quality / judgment issues, not crashes, and are largely
+tied to running a *lite* model on the free tier (the stronger `gemini-3.6-flash` passed
+several of these before its 20/day quota was exhausted):
+- `trailplus-return-window`, `valid-order-lookup`: the lite model paraphrased an
+  exact-match string ("45 days" for "45 calendar days"; "in transit" for "shipped").
+- `canada-multiturn`, `retrieved-prompt-injection`: the lite model dropped a required
+  concept (didn't re-name "Canada" / didn't explicitly label the migration note
+  non-authoritative), though it did *behave* correctly (ignored the injection).
+- Two handoff judgment calls (`system-prompt-extraction` should hand off;
+  `delivered-then-return-eligibility` shouldn't) — model-dependent.
+
+The offline unit tests (`python -m pytest` — 67 passing) run deterministically with no
 key and cover the order tool's safety properties, retrieval precedence, the agent
-control flow, the grader, observability secret-safety, rate-limit/retry, and the Gemini
-tool-call replay.
+control flow, the grader, observability secret-safety, rate-limit/retry, model
+auto-selection, and the Gemini tool-call replay.
 
 ## 7. Bug diary
 
-**Bug 1 — Agent paraphrased policy figures, dropping "calendar".**
-- *Repro:* `trailplus-return-window` — asked the TrailPlus return window; the model
-  answered "45 days", failing the `must_include: "45 calendar days"` assertion.
-- *Root cause:* nothing instructed the model to preserve the KB's exact units; it
-  naturally shortened "45 calendar days" to "45 days".
-- *Fix:* system prompt now requires preserving the KB's exact figures/units and stating
-  all material conditions (`src/aster_agent/prompts.py`).
-- *Regression test:* the deterministic eval case `trailplus-return-window` (and
-  `standard-return-window`) assert the exact "N calendar days" phrasing.
+**Bug 1 — Tool-calling crashed on Gemini 3.x (`thought_signature`).** *(discovered beyond
+the visible-case wording, from the first live run.)*
+- *Repro:* every tool-using case (`valid-order-lookup`, `cancelled-order-stale-eta`,
+  `unknown-order`, `shipped-without-eta`) returned `400 INVALID_ARGUMENT: Function call is
+  missing a thought_signature in functionCall parts`.
+- *Root cause:* Gemini 3.x "thinking" models return an opaque `thought_signature` on the
+  function-call part that must be echoed back verbatim on the follow-up turn. The tool loop
+  *reconstructed* the call from name+args, dropping the signature.
+- *Fix:* stash the original model `Content` on the `ToolCall` and replay it verbatim on the
+  next turn instead of rebuilding it (`src/aster_agent/llm.py`).
+- *Result:* the `tool-reliability` category went **0/3 → 3/3**.
+- *Regression test:* `tests/test_llm_gemini.py::test_tool_call_raw_content_is_replayed_verbatim`.
 
-**Bug 2 — Concept rule missed a hyphenated variant ("30-day" vs "30 day").**
+**Bug 2 — Agent abstained correctly but the grader didn't recognize it.**
+- *Repro:* `insufficient-information` failed the concept `the supplied information is
+  insufficient` even though the agent answered "the provided information does not contain
+  details… please contact a human."
+- *Root cause:* the concept rule didn't include the "does not contain details" family of
+  phrasings.
+- *Fix:* broadened the concept rule (`concept_rules.py`); the case now passes.
+- *Regression test:* `tests/test_evalsuite.py` concept coverage + the live case.
+
+**Bug 3 — Agent omitted the 7-day damage-reporting window.**
+- *Repro:* `final-sale-damaged-exception` failed the `report within 7 days` concept — the
+  agent explained the damaged-item exception but never stated the reporting deadline.
+- *Root cause:* nothing told the model to surface reporting deadlines/timeframes.
+- *Fix:* system prompt now requires stating reporting deadlines (e.g. report damaged items
+  within 7 calendar days) and preserving the KB's exact figures/units
+  (`src/aster_agent/prompts.py`); the case now passes.
+- *Regression test:* the `final-sale-damaged-exception` case (+ gold-answer validation).
+
+**Bug 4 — Concept rule missed a hyphenated variant ("30-day" vs "30 day").**
 - *Repro:* found *before spending API quota* by feeding hand-written correct answers
-  through the grader (`scratchpad gold_check`). `delivered-then-return-eligibility`'s
-  answer "within the 30-day return window" failed the `within the 30-day return window`
-  concept.
-- *Root cause:* the concept rule listed `"30 day"` (space) but not `"30-day"` (hyphen);
-  the normalizer collapses en/em-dashes but not hyphens.
-- *Fix:* added hyphenated variants to the affected concept rules
-  (`src/aster_agent/evalsuite/concept_rules.py`).
-- *Regression test:* the gold-answer validation now passes for all 22 cases; covered by
-  `tests/test_evalsuite.py::test_concept_matching_canada` and the concept-rule coverage
-  test.
+  through the grader (a `gold_check` script). "within the 30-day return window" failed the
+  matching concept.
+- *Root cause:* the rule listed `"30 day"` (space) but not `"30-day"` (hyphen); the
+  normalizer unifies dashes but not hyphens.
+- *Fix:* added hyphenated variants (`concept_rules.py`).
+- *Regression test:* gold-answer validation passes for all 22 cases;
+  `tests/test_evalsuite.py::test_concept_matching_canada`.
 
-**Bug 3 — Flaky privacy assertion in the trace test (false positive on scores).**
-- *Repro:* `tests/test_observability.py::test_trace_never_logs_pii_or_internal` failed
-  intermittently asserting `"82"` (a risk score) was absent — but `"82"` also appears
-  inside retrieval **score** floats like `0.82xx` in the trace.
-- *Root cause:* the test matched a bare substring against the whole serialized trace,
-  which legitimately contains float scores.
-- *Fix:* assert against the **structured tool-result payload** (which is sanitized),
-  not the raw blob.
-- *Regression test:* the updated `test_trace_never_logs_pii_or_internal_on_order_lookup`,
-  stable across repeated runs.
+**Bug 5 — Flaky privacy assertion in the trace test (false positive on scores).**
+- *Repro:* the observability PII test intermittently failed asserting `"82"` (a risk score)
+  was absent — but `"82"` also appears inside retrieval **score** floats like `0.82xx`.
+- *Root cause:* it matched a bare substring against the whole serialized trace.
+- *Fix:* assert against the **structured, sanitized tool-result payload**, not the raw blob.
+- *Regression test:* `test_trace_never_logs_pii_or_internal_on_order_lookup`, stable across
+  repeated runs.
 
-**Bug 4 — Environment/config failures surfaced by the first live runs (honorable
-mentions).** `text-embedding-004` → 404 (switched to `gemini-embedding-001`);
-`gemini-2.5-flash` retired for new keys → 404 (switched to `gemini-3.6-flash`); free-tier
-429s crashed the run (added pacing + retry honoring the server's `retryDelay`, and
-fail-fast on exhausted quota). Each is a one-line fix in config/`ratelimit.py`, and the
-harness already treated an API error as a failed case rather than a crashed run.
+**Honorable mentions — model/quota churn (config + `ratelimit.py`).** `text-embedding-004`
+and `gemini-2.5-flash`/`gemini-2.0-flash` returned 404 as Google retired ids; free-tier
+`generate_content` is capped **per model, per day** (20/day for `gemini-3.6-flash`), which
+429-crashed runs. Fixes: retry honoring the server `retryDelay` + pacing + fail-fast; and
+**model auto-selection** (`model_select.py`) that queries the API and prefers high-quota
+`flash-lite` models so a clean clone can run without hand-editing model ids. The eval
+harness also treats any API error as a failed case, never a crashed run.
 
 ## 8. Known limitations / what I'd improve before production
 
