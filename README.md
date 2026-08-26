@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/89d511a8-86ef-4912-877f-62fd439b3658
+
 # Aster & Row — Reliable RAG Support Agent
 
 A customer-support agent for the fictional store *Aster & Row*, built for reliability
@@ -283,7 +287,7 @@ harness also treats any API error as a failed case, never a crashed run.
 
 ## 10. Demo video
 
-▶ **[Watch the demo](docs/cometChatAgentAssignment.mp4)** (`docs/cometChatAgentAssignment.mp4`)
+▶
 
 A screen recording demonstrating: a knowledge-base question with citations, an order
 lookup, a multi-turn conversation (ship internationally → "what about Canada?"), a case
