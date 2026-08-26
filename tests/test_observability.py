@@ -63,10 +63,18 @@ def test_trace_never_logs_pii_or_internal_on_order_lookup(kb):
     agent = _agent(kb, responder, stream)
     agent.chat("where is ORD-1007?")
     blob = stream.getvalue().lower()
+    # PII / note text must never appear anywhere in the trace.
     assert "ava.morgan@example.test" not in blob
     assert "220 king street" not in blob
     assert "fraud" not in blob
-    assert "82" not in blob
+    # The risk score must not leak. Check the structured tool-result payload
+    # rather than the whole blob (which legitimately contains float scores like
+    # 0.82xx from retrieval debug).
+    rec = json.loads(stream.getvalue().splitlines()[-1])
+    tool_results = json.dumps(rec["tool_calls"])
+    assert "82" not in tool_results
+    assert "risk" not in tool_results.lower()
+    assert "warehouse" not in tool_results.lower()
 
 
 def test_history_accumulates_across_turns(kb):
