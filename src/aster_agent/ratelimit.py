@@ -56,7 +56,7 @@ def call_with_retry(
     fn: Callable[[], T],
     *,
     limiter: RateLimiter | None = None,
-    max_retries: int = 6,
+    max_retries: int = 2,
     default_delay: float = 20.0,
     sleep: Callable[[float], None] = time.sleep,
 ) -> T:
